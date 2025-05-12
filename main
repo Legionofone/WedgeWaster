@@ -1,0 +1,187 @@
+// ==UserScript==
+// @name 		MAM - WedgeWaster
+// @author 		WirlyWirly
+// @namespace 		https://github.com/WirlyWirly
+// @version 		2.0
+
+// @match 		https://www.myanonamouse.net/t/*
+// @match 		https://www.myanonamouse.net/tor/browse.php*
+
+// @icon 		https://www.myanonamouse.net/favicon.ico
+
+// @homepage    https://gist.github.com/WirlyWirly/e599ca9e293558ec014d0e806914b936
+// @updateURL   https://gist.github.com/WirlyWirly/e599ca9e293558ec014d0e806914b936/raw/MAM%2520-%2520WedgeWaster.user.js
+// @downloadURL   https://gist.github.com/WirlyWirly/e599ca9e293558ec014d0e806914b936/raw/MAM%2520-%2520WedgeWaster.user.js
+
+// @description Waste a wedge and not your time when purchasing freeleech!
+// @grant        GM_xmlhttpRequest
+// @run-at 		document-end
+// ==/UserScript==
+
+// change to false to not download .torrent when freeleech purchase fails
+const always_download = true
+
+// ----------------------------------- CODE --------------------------------------
+
+// Function to run when button is clicked
+function purchaseTorrent(torrentID, torrentFileURL, pageType) {
+    // Send a GET request to make a torrent freeleech, after responding download the .torrent file
+
+    let freeleechURL = `https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=personalFL&torrentid=${torrentID}`
+
+    // Creating the XMLHttpRequest object
+    var xhr = new XMLHttpRequest()
+    xhr.open("GET", freeleechURL, true)
+
+    // Function to execute after a successfull request
+    xhr.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+
+            // Parse MAM response as JSON
+            let mam_response = JSON.parse(this.response)
+
+            // Update Ratio box if freeleech purchase was successfull
+            if (mam_response.success == true) {
+                console.log(`WedgeWaster | Success: ${mam_response.type}`)
+
+                if (pageType === 'details') {
+                    // Update details page to show change
+                    let ratio_box = document.getElementById('ratio')
+                    ratio_box.getElementsByClassName('torDetInnerBottomSpan')[0].innerText = 'This torrent is a Personal freeleech!'
+                }
+
+                // Download .torrent file
+                let baseURL='https://download.rhc2.com/?url='
+                let encodedTorrentFile= encodeURIComponent(torrentFileURL)
+                console.log(baseURL+encodedTorrentFile)
+                window.open(baseURL+encodedTorrentFile)
+            } else {
+                // If freeleech purchase was unsuccessfull
+                console.log(`WedgeWaster | Error: ${mam_response.error}`)
+                if (always_download == true) {
+                    // Download .torrent file
+                    let baseURL='https://download.rhc2.com/?url='
+                    let encodedTorrentFile= encodeURIComponent(torrentFileURL)
+                    console.log(baseURL+encodedTorrentFile)
+                    window.open(baseURL+encodedTorrentFile)
+                } else {
+                    alert(`WedgeWaster\n\n${mam_response.error}`)
+                }
+            }
+
+        }
+    }
+
+    // Send the request
+    xhr.send()
+}
+
+var observer = new MutationObserver(function(mutations) {
+    // Functionality to run when changes are detected to the target element
+    try {
+        var xhr = new XMLHttpRequest()
+        // All torrent elements in table
+        let torrentRows = document.getElementsByTagName('tbody')[1].getElementsByTagName('tr')
+
+        for (let torrent of torrentRows) {
+
+            if (torrent.id.length < 1) {
+                // not a torrent, skipping
+                continue
+            }
+
+            // Default download button
+            let downloadButton = torrent.getElementsByClassName('directDownload')[0]
+
+            // Torrent download data
+            let torrentID = downloadButton.id.match(/dlLink(\d+)/)[1]
+            let torrentFileURL = downloadButton.href
+
+            // Generate WedgeWaster button
+            let wedgeWasterButton = document.createElement('img')
+            wedgeWasterButton.title = 'WedgeWaster: Spend a wedge to make this torrent Freeleech'
+            wedgeWasterButton.style = `max-width: 20px; max-height: 20px; cursor: pointer;padding-bottom: .8em;`
+            wedgeWasterButton.src = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAApgAAAKYB3X3/OAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAPuSURBVEiJtVVrTFtlGH6+0gttodDCSsEWUguMIoYNurlFt5GZbE12wduymTkNBBf9NRNFk6ETkgWc0f0wC1FMFpfNwIyDKNvQZQEiGKdiM2Rc5DJoM0qlXNrT0uuhnz8WDjuUrWPq8+97n/c8z/t+ec/7EUop/k8IHiaJEJLwqAZktQ4IITqxWFghl4v2yyTCNKNRHfF6QwG3J8C4mcBFu93zGaXUv2YDQki8NkNx1qBX7Xxh/xPK3TsN4vU5qRwfiVBcbOkL1Z3ucrjdgUbbHXcdpdT9UAaEEKM+S9lcf3qf3vxstiRWZVeu/cVW13U6Zma9Vyds7g8opdP3NSCEGDYUaLraLr2arklb23X/9LM1UnXyumNykuket82/Sym18gwAEH2W8o+Oy2Ubs3TJaxK/F5beKRyvueYYHpu7OW6df5tSOgAARKtVHHujbHNtxZEi2SOrA0hMlEAijkPXL1acqG2ft91xDdmnfG+RHINqIDNdbszOUvwbfZRseQz5OSrUn+/jYm2dtgApfnLdXE9LqXItYrOuIFRJEhDy4LxdZT8yApU8Lg7hMI+w2b1oaByEwxk96h03plBafhX2/ims/IXCbIR3XlgIegRCAUTw+bjgt2238V5NN+K9frjGnVEGv/dO47BZiw+/vAVL/wwXb7o8huK9zTjXPMLLv7sqIsvOF1pG8FV1EV4p1SHkDaP2jIX3wdGXjRh1slifr0ZxQSpiQbgy8HimAiM2LwoMClzpmUbRU1oen6wQ49OqrVFCh/Ya8KJZD5GQv96ill3l0ULUt07i+eM9CEtE2L1dF7PKJdwrfsMyHXF5wn9HdZCulqH+5LaYYj4/i/dP/YrB0XmUH8jFgdJcjvMHWByp7BwctTIlUR2wi/xJmHMFsaf8BzQ0DfHi51uGsTk3Ad/UmLA1Q4rfLA6O8yyEAdBpSqmHM2C8YZj2NcO05xJvOoYn3PAvhNB6fYJn0Ds4i+1FKUhMEsK3yOLMuX6OU6dIUfZS3oaCHFVTXI4uoeqwWSfq7mcw52Rg3pSGvjEGO7ZkAAC0GjkM+iRUHMyDTLp8oxq1HJWfWBAvEuDjxjEcqyhEZsbyoty2SSP9+vtRJTemOzamgBUI0XFrHmUH83jVPmPSIFUZj2BokYsVF6Tii49KMMOK8PmpEjxt0qy8bQCAMMRGggCkQp8XZ0+YAJHoLhMMckmsIA7PvdnuGLrtsifIRetaG3bpdOlypKtleP1Q3qrCSyAlJnV1okz4TppKIr5fktXh9/05wrzmmFn4jhCiKzSmtOdnJ8fcjjcHZp1LD44UQNoDchlK6RxXFSEyAOpYBgCcqz76/yX+AbrdiORE+q5tAAAAAElFTkSuQmCC`
+            wedgeWasterButton.classList.add('MAM-WW-BrowseButton')
+            wedgeWasterButton.addEventListener('click', function() {
+
+                // Elements that signify torrent is already freeleech
+                let vipFreeleech = torrent.children[1].querySelector('img[alt="VIP"]')
+                let siteFreeleech = torrent.children[1].querySelector('img[alt="freeleech"]')
+                let personalFreeleech = torrent.children[1].querySelector('span[title="personal freeleech"]')
+
+                if (vipFreeleech || siteFreeleech || personalFreeleech) {
+                    // Torrent is already freelech, skipping purchase
+                    console.log('WedgeWaster: Save a wedge, this torrent is already freeleech!')
+                    let baseURL='https://download.rhc2.com/?url='
+                    let encodedTorrentFile= encodeURIComponent(torrentFileURL)
+                    console.log(baseURL+encodedTorrentFile)
+                    window.open(baseURL+encodedTorrentFile)
+
+                    // Update button icon
+                    wedgeWasterButton.src = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAsQAAALEBxi1JjQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGTSURBVEiJ7ZO7ThtBGEbPzBjbKCCRNwgSTxCFhksZAcI0KagRWDjcJCipED1NOipTIYtLHRuMRANI6VPzAAgvkYLjXXt3/hTYEpe1WRvo+Mpfo3Pm8g2855mo1wKtXax1l2+9dV+CSdcvJwORw73U7sarCGZOV/vifvUYGGzMHNfBaP3jxYI6vAh8uT+v2RpO5cbTbwEHMMpgCeLmLeAAXuARiF9SAJmTpa8gC1bkoxJdvPlztXUwfVDtFG5FKLnXwYd4IqUyxcVvAofca5Qg50G3N5Edyf5tFy5iKbmO32XM/N5kbkcLbPKorgo1HPuXLMyezfa+BA6ggU+h96AYMpVEviHpBN4Q/AoV1E9iKol8+mi5vxM4gNbWrgK3rSRa28tO4AB6e2z7txY9Djx50OfSgMd0VyYMfrfBer4fLw9bZfNAb9jCVvD91G622boH7YkqiQp/IogiaQceKmglaRfeVACQPlkY1aJ+Aj1w9/0dt9S0LW0LAOYKiwMmxkbN1j6Xq+WqEVnJTeXOosLfEyn/AWKDDrpj1jJOAAAAAElFTkSuQmCC`
+
+                } else {
+                    // Purchase torrent as freeleech
+                    purchaseTorrent(torrentID, torrentFileURL, 'browse')
+
+                    // Update button icon
+                    wedgeWasterButton.src = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAsQAAALEBxi1JjQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGTSURBVEiJ7ZO7ThtBGEbPzBjbKCCRNwgSTxCFhksZAcI0KagRWDjcJCipED1NOipTIYtLHRuMRANI6VPzAAgvkYLjXXt3/hTYEpe1WRvo+Mpfo3Pm8g2855mo1wKtXax1l2+9dV+CSdcvJwORw73U7sarCGZOV/vifvUYGGzMHNfBaP3jxYI6vAh8uT+v2RpO5cbTbwEHMMpgCeLmLeAAXuARiF9SAJmTpa8gC1bkoxJdvPlztXUwfVDtFG5FKLnXwYd4IqUyxcVvAofca5Qg50G3N5Edyf5tFy5iKbmO32XM/N5kbkcLbPKorgo1HPuXLMyezfa+BA6ggU+h96AYMpVEviHpBN4Q/AoV1E9iKol8+mi5vxM4gNbWrgK3rSRa28tO4AB6e2z7txY9Djx50OfSgMd0VyYMfrfBer4fLw9bZfNAb9jCVvD91G622boH7YkqiQp/IogiaQceKmglaRfeVACQPlkY1aJ+Aj1w9/0dt9S0LW0LAOYKiwMmxkbN1j6Xq+WqEVnJTeXOosLfEyn/AWKDDrpj1jJOAAAAAElFTkSuQmCC`
+                }
+
+            })
+
+            // Append the WedgeWaster button above the normal download button
+            downloadButton.parentNode.insertBefore(wedgeWasterButton, downloadButton)
+        }
+
+    } catch (e) {
+        // No changes or not ready
+    }
+
+
+
+})
+
+if (document.URL.match(/\/t\/\d+/)) {
+    // --- Torrent Details page ---
+    var xhr = new XMLHttpRequest()
+    let torrentFileURL = document.getElementById("tddl").href
+    let torrentID = document.URL.match(/\/t\/(\d+)/)[1]
+    let pageType = 'details'
+
+    // Create WedgeWaster button
+    let button = document.createElement('div')
+    button.style = 'margin-top: 1em;cursor: pointer'
+    button.innerHTML = `<img style="max-width: 130px" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJwAAAAxCAYAAAAvOsB9AAAEsWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS41LjAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczpleGlmPSJodHRwOi8vbnMuYWRvYmUuY29tL2V4aWYvMS4wLyIKICAgIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIKICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIgogICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgdGlmZjpJbWFnZUxlbmd0aD0iNDkiCiAgIHRpZmY6SW1hZ2VXaWR0aD0iMTU2IgogICB0aWZmOlJlc29sdXRpb25Vbml0PSIyIgogICB0aWZmOlhSZXNvbHV0aW9uPSI5Ny8xIgogICB0aWZmOllSZXNvbHV0aW9uPSI5Ny8xIgogICBleGlmOlBpeGVsWERpbWVuc2lvbj0iMTU2IgogICBleGlmOlBpeGVsWURpbWVuc2lvbj0iNDkiCiAgIGV4aWY6Q29sb3JTcGFjZT0iMSIKICAgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIKICAgcGhvdG9zaG9wOklDQ1Byb2ZpbGU9InNSR0IgSUVDNjE5NjYtMi4xIgogICB4bXA6TW9kaWZ5RGF0ZT0iMjAyMi0x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">`
+    button.addEventListener('click', function() {
+        let freeLeechStatus = document.getElementById('ratio').getElementsByClassName('torDetInnerBottomSpan')[0].innerText
+
+        if (freeLeechStatus.match(/freeleech/i)) {
+            console.log('WedgeWaster: Save a wedge, this torrent is already freeleech!')
+            let baseURL='https://download.rhc2.com/?url='
+            let encodedTorrentFile= encodeURIComponent(torrentFileURL)
+            console.log(baseURL+encodedTorrentFile)
+            window.open(baseURL+encodedTorrentFile)
+
+        } else {
+            purchaseTorrent(torrentID, torrentFileURL, pageType)
+
+        }
+    })
+
+    // Append WedgeWaster button below normal download button
+    let downloadButtons = document.getElementById('download').getElementsByClassName('torDetInnerBottom')[0]
+    downloadButtons.appendChild(document.createElement('br'))
+    downloadButtons.appendChild(button)
+
+} else if (document.URL.match(/\/tor\/browse\.php/)) {
+    // --- Browse page ---
+
+    let target = document.getElementById('ssr')
+    let config = {childList: true}
+
+    // Monitor page for any changes
+    observer.observe(target, config)
+
+}
